@@ -38,7 +38,7 @@ def my_team():
     of triplet of the form (student_number, first_name, last_name)
 
     '''
-    return [ (9976353, 'Omar', 'Alqarni'), (9497862, 'Mohammed', 'Alsaeed'), (1234569, 'Sohyb', 'Qasem') ]
+    return [ (9976353, 'Omar', 'Alqarni'), (9497862, 'Mohammed', 'Alsaeed'), (10368493, 'Sohyb', 'Qasem') ]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -65,7 +65,155 @@ def taboo_cells(warehouse):
        and the boxes.  
     '''
     # "INSERT YOUR CODE HERE"    
-    raise NotImplementedError()
+    warehouse = str(warehouse)  
+    remove_cells = ["@", "$"]
+    targets_cells = ["!", "*", "."]
+    wall_cell = "#"
+    taboo_cell = "X"
+
+    #function to itirate through target cell and return true if similar 
+    def targets_check(cell):
+        if (cell in targets_cells) or (cell in taboo_cell):
+            return True
+        return False
+
+    #Function use to pass two varables and remove cells from the warehouse
+    def replace_cells(cells_to_remove, warehaouse_str):
+        for i in range (0, len(cells_to_remove)):
+            warehaouse_str = warehaouse_str.replace(cells_to_remove[i], ' ')
+        return warehaouse_str
+
+    #Check if cell still inside a warehouse
+    def check_insidewarehouse(i):
+        if (inside_warehouse == 1):
+            for a in range (1, warehouse_width):
+                if (warehouse[i+a] == '\n'):
+                    return 0
+                if (warehouse[i+a] != ' '):
+                    return 1       
+        return 0
+
+    #Check if a cell is taboo
+    def check_taboocell(i, cells):
+        #compare up/down right and left walls
+        if (inside_warehouse == 1) and (warehouse[i] in ' '):
+            #check right and left sides for walls
+            if (warehouse[i+1] in cells) or (warehouse[i-1] in cells):
+                #check up and down sides for walls
+                if (warehouse[i+warehouse_width] in  cells) or (warehouse[i-warehouse_width] in cells):
+                    warehouse[i] = taboo_cell
+
+    #Check if a cell is taboo == X
+    def check_taboocell_corners(i, cells):
+
+        #compare up/down right and left walls
+        if (inside_warehouse == 1) and (warehouse[i] in ' '):
+            a = 0
+            along_wall = True
+            along_wall_opposite = True
+            taboo_cell_postion = []
+            #check right and left sides for taboo cell
+            while ((along_wall == True) or (along_wall_opposite == True)) and (warehouse[i-1] in cells):
+                
+                if (warehouse[i-warehouse_width+a] != wall_cell):
+                    along_wall = False
+
+                if (warehouse[i+warehouse_width+a] != wall_cell):
+                    along_wall_opposite = False
+
+                if (warehouse[i+a] in (wall_cell)) or (warehouse[i+a] in targets_cells):
+                    taboo_cell_postion.clear()
+                    return taboo_cell_postion
+                elif (warehouse[i+a] in cells):
+                    return taboo_cell_postion
+
+
+                taboo_cell_postion.append(i+a)
+                a+=1
+
+            a = 0
+            along_wall = True
+            along_wall_opposite = True
+            taboo_cell_postion = []    
+                       
+            #This second loop find the taboo cells between corners in a horizontal pattern    
+            while ((along_wall == True) or (along_wall_opposite == True)) and (warehouse[i-warehouse_width] in cells):
+                #Break if search exceeded the bounders
+                if (i+(warehouse_width*a) > len(warehouse)):
+                    break
+
+                #Make sure along corners wall cell in both left and right direction
+                if (warehouse[i+(warehouse_width*a) + 1] != wall_cell):
+                    along_wall = False
+                if (warehouse[(i+(warehouse_width*a)) - 1] != wall_cell):
+                    along_wall_opposite = False
+
+                #If other corner exist return the postion of all new virtical taboo cells if not return empty list
+                if (warehouse[i+(warehouse_width*a)] in wall_cell) or (warehouse[i+(warehouse_width*a)] in targets_cells):
+                    taboo_cell_postion.clear()
+                    return taboo_cell_postion
+                elif (warehouse[i+(warehouse_width*a)] in cells):
+                    return taboo_cell_postion
+
+                #Loop through and add each cell that could be taboo
+                taboo_cell_postion.append(i+(warehouse_width*a))
+                a+=1    
+
+        return 0
+                    
+    #Remove both $,@ square from warehouse 
+    warehouse = replace_cells(remove_cells, warehouse)
+
+    #Find width of warehouse and save value in warehouse_width
+    warehouse_width = 0
+    while (1):
+        if warehouse[warehouse_width] == '\n':
+            warehouse_width+=1
+            break
+        warehouse_width+=1
+
+    #Convert string to list to modifiy the warehouse
+    warehouse = list(warehouse)
+
+     # We have two condition 
+     # 1-when inside warehaouse = 0 then cell is outside warehouse pre-enterning
+     # 2-whenn inside warehouse = 1 then condisiton inside warehouse 
+    inside_warehouse = 0
+    
+    #Rule 1 - Loop through the warehouse and find the taboo cells
+    for i in range (warehouse_width, len(warehouse) - warehouse_width):
+        #Check if cell is inside warehouse
+        inside_warehouse = check_insidewarehouse(i)
+
+        #Call function to check if a cell is taboo
+        check_taboocell(i, wall_cell)
+
+        #Check if cell enter the warehouse
+        if (warehouse[i] == wall_cell) and ((warehouse[i+1] == ' ') or targets_check(warehouse[i+1])) and (inside_warehouse == 0):
+            inside_warehouse = 1
+
+    #Rule 2 - Loop through the warehouse and find the taboo cells between two Corners
+    inside_warehouse = 0
+    for i in range (warehouse_width, len(warehouse) - warehouse_width):
+        #Check if cell is inside warehouse
+        inside_warehouse = check_insidewarehouse(i)
+
+         #Call function to check if a cell is taboo (between corners)
+        list_taboocells = check_taboocell_corners(i, taboo_cell)
+        if list_taboocells != 0:
+            for n in list_taboocells:
+                warehouse[n] = taboo_cell
+                
+        #Check if cell enter the warehouse
+        if (warehouse[i] == wall_cell) and ((warehouse[i+1] == ' ') or targets_check(warehouse[i+1])) and (inside_warehouse == 0):
+            inside_warehouse = 1
+
+    #Convert back the list to string
+    warehouse = ''.join(warehouse)
+    
+    #Remove target cells
+    warehouse = replace_cells(targets_cells, warehouse)
+    return warehouse
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
