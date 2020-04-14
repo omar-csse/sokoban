@@ -172,18 +172,15 @@ def check_elem_action_seq(warehouse, action_seq):
         if (newx, newy) in warehouse.walls:
             return 'Impossible'
         elif (newx, newy) in warehouse.boxes:
-            if get_new_coords(position, newx, newy) not in (warehouse.walls or warehouse.boxes):
-                warehouse.boxes.remove((newx, newy))
-                warehouse.boxes.append( (get_new_coords(position, newx, newy)) )
-                x = newx
-                y = newy
-            else:
+            if get_new_coords(position, newx, newy) in (warehouse.walls or warehouse.boxes):
                 return 'Impossible'
-        else:
-            x = newx
-            y = newy
+                
+            warehouse.boxes.remove((newx, newy))
+            warehouse.boxes.append( (get_new_coords(position, newx, newy)) )
 
-    # implement change character information for updating
+        x = newx
+        y = newy
+
     warehouse.worker = x, y
     return str(warehouse)
 
