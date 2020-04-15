@@ -311,21 +311,30 @@ def check_elem_action_seq(warehouse, action_seq):
     '''
     
     # "INSERT YOUR CODE HERE"
+    # get the current x and y postion of te worker (player)
     x, y = warehouse.worker
 
+    # loop through the actions in the list
     for position in action_seq:
 
+        # get the new x and y based on the action postion
         newx, newy = get_new_coords(position, x, y)
 
+        # check if the new postion (move) is a wall, if so return impossible to move
         if (newx, newy) in warehouse.walls:
             return 'Impossible'
+        # else if the new postion (move) is a box
         elif (newx, newy) in warehouse.boxes:
+            # check if the future postion of the box after shifting it is wall or another box, 
+            # if so then it is impossible to move. because it hits a wall or a box
             if get_new_coords(position, newx, newy) in (warehouse.walls or warehouse.boxes):
                 return 'Impossible'
-                
+            
+            # otherwise, it is possible to shif the box. hence, update the box position to the new one
             warehouse.boxes.remove((newx, newy))
             warehouse.boxes.append( (get_new_coords(position, newx, newy)) )
 
+        # update the x and y
         x = newx
         y = newy
 
