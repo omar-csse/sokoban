@@ -26,6 +26,7 @@ import sokoban
 from sokoban import Warehouse
 from operator import eq, add, sub
 import math
+import itertools
 from search import astar_graph_search
 
 
@@ -39,6 +40,26 @@ def my_team():
 
     '''
     return [ (9976353, 'Omar', 'Alqarni'), (9497862, 'Mohammed', 'Alsaeed'), (10368493, 'Sohyb', 'Qasem') ]
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    '''
+    Helper functions used through out the solution
+
+    '''
+
+def manhattan_distance(a, b):
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+
+def get_new_coords(position, x, y):
+    if position is 'Right': x = x + 1
+    elif position is 'Left': x = x - 1
+    elif position is 'Up': y = y - 1
+    else: y = y + 1
+
+    return x, y
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -250,11 +271,14 @@ class SokobanPuzzle(search.Problem):
     #     complete this class. For example, a 'result' function is needed
     #     to satisfy the interface of 'search.Problem'.
 
-    def __init__(self, initial, warehouse, goal=None):
+    def __init__(self, initial, warehouse, goal=None, allow_taboo_push=True, macro=False):
         
         self.initial = initial
-        self.goal = goal
         self.warehouse = warehouse
+        self.goal = goal
+        # self.taboo_cells = list(sokoban.find_2D_iterator(taboo_cells(self.warehouse)).split("\n"), "X")
+        self.allow_taboo_cells = allow_taboo_push
+        self.macro = macro
         self.possible_moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
     def value(self, state):
@@ -276,15 +300,16 @@ class SokobanPuzzle(search.Problem):
             if new_move not in self.warehouse.boxes and new_move not in self.warehouse.walls:
                 yield move
 
+    def goal(self, state):
+        permutations_of_boxes = list(itertools.permutations(state.boxex))
+        for i in range(len(permutations_of_boxes)):
+            if tuple(permutations_of_boxes[i]) == self.goal:
+                return True
+        return False
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-def get_new_coords(position, x, y):
-    if position is 'Right': x = x + 1
-    elif position is 'Left': x = x - 1
-    elif position is 'Up': y = y - 1
-    else: y = y + 1
-
-    return x, y
 
 def check_elem_action_seq(warehouse, action_seq):
     '''
@@ -339,7 +364,7 @@ def check_elem_action_seq(warehouse, action_seq):
         y = newy
 
     warehouse.worker = x, y
-    return str(warehouse)
+    return warehouse.__str__()
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -362,8 +387,42 @@ def solve_sokoban_elem(warehouse):
     '''
     
     # "INSERT YOUR CODE HERE"
-    
-    raise NotImplementedError()
+    def h(node):
+
+        if check_elem_action_seq(node.state, node.solution()) == 'Impossible':
+            return 100000
+                
+        heuristics = []
+        for position in node.state.boxex:
+            h_value = manhattan_distance(position, node.state.worker)
+            heuristics.append(h_value)
+
+        worker_to_box = min(heuristics)
+
+        permutations_of_targets = list(itertools.permutations(node.state.targets))
+        heuristics = []
+        for i in range(len(permutations_of_targets)):
+
+            zipped_boxes_targets = list(zip(node.state.boxes, permutations_of_targets[i]))
+            total_h_values = 0
+
+            for j in range(len(zip_boxes_targets)):
+                h_value = manhattan_distance(zipped_boxes_targets[j][0], zipped_boxes_targets[j][1])
+                total_h_values = total_h_values + h_value
+            
+            heuristics.append(total_h_values)
+
+        box_to_target = min(heuristics)
+
+        return worker_to_box + box_to_target
+
+    node = astar_graph_search(SokobanPuzzle(warehouse.worker, warehouse, dst), h)
+
+    if node == []: 
+        return 'Impossible'
+    else:
+        return node.solution()
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
