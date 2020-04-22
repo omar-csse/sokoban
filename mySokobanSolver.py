@@ -61,6 +61,14 @@ def get_new_coords(position, x, y):
     return x, y
 
 
+def action_to_direction(action):
+
+    if action is (1, 0): return 'Right'
+    elif action is (-1, 0): return 'Left'
+    elif action is (0, -1): return 'Up'
+    elif action is (0, 1): return 'Down'
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
