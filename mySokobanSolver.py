@@ -279,22 +279,29 @@ class SokobanPuzzle(search.Problem):
     #     complete this class. For example, a 'result' function is needed
     #     to satisfy the interface of 'search.Problem'.
 
-    def __init__(self, initial, warehouse, goal=None, allow_taboo_push=True, macro=False):
+    def __init__(self, warehouse, goal=None, isgoal=False, allow_taboo_push=True, macro=False):
         
-        self.initial = initial
-        self.warehouse = warehouse
-        self.goal = goal
-        # self.taboo_cells = list(sokoban.find_2D_iterator(taboo_cells(self.warehouse)).split("\n"), "X")
-        self.allow_taboo_cells = allow_taboo_push
+        self.initial = warehouse
+        self.taboo_cells = list(sokoban.find_2D_iterator(taboo_cells(warehouse).split('\n'), "X"))
+        self.allow_taboo_push = allow_taboo_push
         self.macro = macro
         self.possible_moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        self.isgoal = isgoal
+
+        if goal is not None:
+            self.goal = goal
+        else:
+            self.goal = warehouse.targets
+
 
     def value(self, state):
         return 1
 
+
     def result(self, state, action):
         return state[0] + action[0], state[1] + action[1]
     
+
     def actions(self, state):
         """
         Return the list of actions that can be executed in the given state.
@@ -303,10 +310,17 @@ class SokobanPuzzle(search.Problem):
         'self.allow_taboo_push' and 'self.macro' should be tested to determine
         what type of list of actions is to be returned.
         """
+
         for move in self.possible_moves:
             new_move = self.result(state, move)
             if new_move not in self.warehouse.boxes and new_move not in self.warehouse.walls:
-                yield move
+                if self.allow_taboo_push is True:
+                    yield move
+                else:
+                    new_move = self.result(state, new_move)
+                    if new_move not in self.taboo_cells:
+                        yield move
+
 
     def goal(self, state):
         permutations_of_boxes = list(itertools.permutations(state.boxex))
@@ -314,6 +328,39 @@ class SokobanPuzzle(search.Problem):
             if tuple(permutations_of_boxes[i]) == self.goal:
                 return True
         return False
+
+
+    def h(self, node):
+
+        if self.isgoal is True:
+            return math.sqrt ( (node.state[1] - self.goal[1])**2 + (node.state[0] - self.goal[0])**2 )
+        else:
+
+            warehouse = sokoban.Warehouse()
+            warehouse.extract_locations(node.state.__str__().split("\n"))
+
+            heuristics = []
+            for position in warehouse.boxes:
+                h_value = manhattan_distance(position, warehouse.worker)
+                heuristics.append(h_value)
+
+            worker_to_box = min(heuristics)
+
+            permutations_of_targets = list(itertools.permutations(warehouse.targets))
+            heuristics = []
+            for i in range(len(permutations_of_targets)):
+
+                zipped_boxes_targets = list(zip(warehouse.boxes, permutations_of_targets[i]))
+                total_h_values = 0
+
+                for j in range(len(zip_boxes_targets)):
+                    h_value = manhattan_distance(zipped_boxes_targets[j][0], zipped_boxes_targets[j][1])
+                    total_h_values = total_h_values + h_value
+                
+                heuristics.append(total_h_values)
+
+            box_to_target = min(heuristics)
+            return worker_to_box + box_to_target
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -395,41 +442,11 @@ def solve_sokoban_elem(warehouse):
     '''
     
     # "INSERT YOUR CODE HERE"
-    def h(node):
-
-        if check_elem_action_seq(node.state, node.solution()) == 'Impossible':
-            return 100000
-                
-        heuristics = []
-        for position in node.state.boxex:
-            h_value = manhattan_distance(position, node.state.worker)
-            heuristics.append(h_value)
-
-        worker_to_box = min(heuristics)
-
-        permutations_of_targets = list(itertools.permutations(node.state.targets))
-        heuristics = []
-        for i in range(len(permutations_of_targets)):
-
-            zipped_boxes_targets = list(zip(node.state.boxes, permutations_of_targets[i]))
-            total_h_values = 0
-
-            for j in range(len(zip_boxes_targets)):
-                h_value = manhattan_distance(zipped_boxes_targets[j][0], zipped_boxes_targets[j][1])
-                total_h_values = total_h_values + h_value
-            
-            heuristics.append(total_h_values)
-
-        box_to_target = min(heuristics)
-
-        return worker_to_box + box_to_target
-
-    node = astar_graph_search(SokobanPuzzle(warehouse.worker, warehouse, dst), h)
-
-    if node == []: 
+    astar_sol = astar_graph_search(SokobanPuzzle(warehouse), h)
+    if astar_sol == [] or astar_sol is None: 
         return 'Impossible'
     else:
-        return node.solution()
+        return astar_path.solution()
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -448,11 +465,8 @@ def can_go_there(warehouse, dst):
     '''
     
     ## "INSERT YOUR CODE HERE"
-    def h(n):
-        return math.sqrt ( (n.state[1] - dst[1])**2 + (n.state[0] - dst[0])**2 )
-    
     dst = (dst[1], dst[0])
-    node = astar_graph_search(SokobanPuzzle(warehouse.worker, warehouse, dst), h)
+    node = astar_graph_search(SokobanPuzzle(warehouse, dst, isgoal=True))
     
     return node is not None
     
