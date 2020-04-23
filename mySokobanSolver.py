@@ -52,21 +52,31 @@ def manhattan_distance(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 
-def get_new_coords(position, x, y):
-    if position is 'Right': x = x + 1
-    elif position is 'Left': x = x - 1
-    elif position is 'Up': y = y - 1
+def get_new_coords(action, x, y):
+    if action == 'Right': x = x + 1
+    elif action == 'Left': x = x - 1
+    elif action == 'Up': y = y - 1
     else: y = y + 1
 
     return x, y
 
 
-def action_to_direction(action):
+def get_move(action):
+    if action == (1, 0): return 'Right'
+    elif action == (-1, 0): return 'Left'
+    elif action == (0, -1): return 'Up'
+    elif action == (0, 1): return 'Down'
 
-    if action is (1, 0): return 'Right'
-    elif action is (-1, 0): return 'Left'
-    elif action is (0, -1): return 'Up'
-    elif action is (0, 1): return 'Down'
+
+def get_prev_coords(action, x, y):
+    if action == (1, 0): return x-1, y
+    elif action == (-1, 0): return x+1, y
+    elif action == (0, -1): return x, y+1
+    elif action == (0, 1): return x, y-1
+
+
+def do_move(a, b):
+    return (a[0] + b[0], a[1] + b[0])
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -279,29 +289,25 @@ class SokobanPuzzle(search.Problem):
     #     complete this class. For example, a 'result' function is needed
     #     to satisfy the interface of 'search.Problem'.
 
-    def __init__(self, warehouse, goal=None, isgoal=False, allow_taboo_push=True, macro=False):
+    def __init__(self, warehouse, goal=None, allow_taboo_push=True, macro=False):
         
         self.initial = warehouse
         self.taboo_cells = list(sokoban.find_2D_iterator(taboo_cells(warehouse).split('\n'), "X"))
         self.allow_taboo_push = allow_taboo_push
         self.macro = macro
         self.possible_moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-        self.isgoal = isgoal
 
         if goal is not None:
             self.goal = goal
         else:
             self.goal = warehouse.targets
 
-
     def value(self, state):
         return 1
 
-
     def result(self, state, action):
-        return state[0] + action[0], state[1] + action[1]
+        pass
     
-
     def actions(self, state):
         """
         Return the list of actions that can be executed in the given state.
@@ -310,57 +316,65 @@ class SokobanPuzzle(search.Problem):
         'self.allow_taboo_push' and 'self.macro' should be tested to determine
         what type of list of actions is to be returned.
         """
+        
+        actions = []
 
-        for move in self.possible_moves:
-            new_move = self.result(state, move)
-            if new_move not in self.warehouse.boxes and new_move not in self.warehouse.walls:
-                if self.allow_taboo_push is True:
-                    yield move
-                else:
-                    new_move = self.result(state, new_move)
-                    if new_move not in self.taboo_cells:
-                        yield move
+        if self.allow_taboo_push:
+            for move in self.possible_moves:
+                new_player_position = do_move(state.worker, move)
+                for (x,y) in state.boxes:
+                    if new_player_position not in state.walls:
+                        if new_player_position not in state.boxes:
+                            actions.append(get_move(move))
+                        else:
+                            new_box_position = do_move(new_player_position, move)
+                            if new_box_position not in (state.walls and state.boxes):
+                                actions.append(get_move(move))
+        else:
+            for move in self.possible_moves:
+                new_player_position = do_move(state.worker, move)
+                for (x,y) in state.boxes:
+                    if new_player_position not in state.walls:
+                        if new_player_position not in state.boxes:
+                            actions.append(get_move(move))
+                        else:
+                            new_box_position = do_move(new_player_position, move)
+                            if new_box_position not in (state.walls and state.boxes and self.taboo_cells):
+                                actions.append(get_move(move))
+        
+        print(actions)
+        return actions
 
-
-    def goal(self, state):
-        permutations_of_boxes = list(itertools.permutations(state.boxex))
-        for i in range(len(permutations_of_boxes)):
-            if tuple(permutations_of_boxes[i]) == self.goal:
-                return True
-        return False
-
+    def goal_test(self, state):
+        return set(self.goal) == set(state.boxes)
 
     def h(self, node):
 
-        if self.isgoal is True:
-            return math.sqrt ( (node.state[1] - self.goal[1])**2 + (node.state[0] - self.goal[0])**2 )
-        else:
+        if check_elem_action_seq(node.state, node.solution()) == 'Impossible':
+            return 10000
 
-            warehouse = sokoban.Warehouse()
-            warehouse.extract_locations(node.state.__str__().split("\n"))
+        heuristics = []
+        for position in node.state.boxes:
+            h_value = manhattan_distance(position, node.state.worker)
+            heuristics.append(h_value)
 
-            heuristics = []
-            for position in warehouse.boxes:
-                h_value = manhattan_distance(position, warehouse.worker)
-                heuristics.append(h_value)
+        worker_to_box = min(heuristics)
 
-            worker_to_box = min(heuristics)
+        permutations_of_targets = list(itertools.permutations(node.state.targets))
+        heuristics = []
+        for i in range(len(permutations_of_targets)):
 
-            permutations_of_targets = list(itertools.permutations(warehouse.targets))
-            heuristics = []
-            for i in range(len(permutations_of_targets)):
+            zipped_boxes_targets = list(zip(node.state.boxes, permutations_of_targets[i]))
+            total_h_values = 0
 
-                zipped_boxes_targets = list(zip(warehouse.boxes, permutations_of_targets[i]))
-                total_h_values = 0
+            for j in range(len(zipped_boxes_targets)):
+                h_value = manhattan_distance(zipped_boxes_targets[j][0], zipped_boxes_targets[j][1])
+                total_h_values = total_h_values + h_value
+            
+            heuristics.append(total_h_values)
 
-                for j in range(len(zip_boxes_targets)):
-                    h_value = manhattan_distance(zipped_boxes_targets[j][0], zipped_boxes_targets[j][1])
-                    total_h_values = total_h_values + h_value
-                
-                heuristics.append(total_h_values)
-
-            box_to_target = min(heuristics)
-            return worker_to_box + box_to_target
+        box_to_target = min(heuristics)
+        return worker_to_box + box_to_target
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -395,10 +409,10 @@ def check_elem_action_seq(warehouse, action_seq):
     x, y = warehouse.worker
 
     # loop through the actions in the list
-    for position in action_seq:
+    for action in action_seq:
 
         # get the new x and y based on the action postion
-        newx, newy = get_new_coords(position, x, y)
+        newx, newy = get_new_coords(action, x, y)
 
         # check if the new postion (move) is a wall, if so return impossible to move
         if (newx, newy) in warehouse.walls:
@@ -407,12 +421,12 @@ def check_elem_action_seq(warehouse, action_seq):
         elif (newx, newy) in warehouse.boxes:
             # check if the future postion of the box after shifting it is wall or another box, 
             # if so then it is impossible to move. because it hits a wall or a box
-            if get_new_coords(position, newx, newy) in (warehouse.walls or warehouse.boxes):
+            if get_new_coords(action, newx, newy) in (warehouse.walls or warehouse.boxes):
                 return 'Impossible'
             
-            # otherwise, it is possible to shif the box. hence, update the box position to the new one
+            # otherwise, it is possible to shif the box. hence, update the box action to the new one
             warehouse.boxes.remove((newx, newy))
-            warehouse.boxes.append( (get_new_coords(position, newx, newy)) )
+            warehouse.boxes.append( (get_new_coords(action, newx, newy)) )
 
         # update the x and y
         x = newx
@@ -442,7 +456,7 @@ def solve_sokoban_elem(warehouse):
     '''
     
     # "INSERT YOUR CODE HERE"
-    astar_sol = astar_graph_search(SokobanPuzzle(warehouse), h)
+    astar_sol = astar_graph_search(SokobanPuzzle(warehouse))
     if astar_sol == [] or astar_sol is None: 
         return 'Impossible'
     else:
@@ -450,6 +464,34 @@ def solve_sokoban_elem(warehouse):
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+class CanGoThere(search.Problem):
+
+    '''
+    Check if can go from position A to position B
+    '''
+
+    def __init__(self, initial, warehouse, goal=None):
+        self.initial = initial
+        self.warehouse = warehouse
+        self.goal = goal
+        self.possible_moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        
+    def value(self, state):
+        return 1
+
+    def result(self, state, action):
+        return state[0] + action[0], state[1] + action[1]
+    
+    def actions(self, state):
+        for move in self.possible_moves:
+            new_move = self.result(state, move)
+            if new_move not in self.warehouse.boxes and new_move not in self.warehouse.walls:
+                yield move
+
+    def h(self, node):
+        return math.sqrt((node.state[1] - self.goal[1])**2 + (node.state[0] - self.goal[0])**2)
 
 
 def can_go_there(warehouse, dst):
@@ -465,8 +507,9 @@ def can_go_there(warehouse, dst):
     '''
     
     ## "INSERT YOUR CODE HERE"
+
     dst = (dst[1], dst[0])
-    node = astar_graph_search(SokobanPuzzle(warehouse, dst, isgoal=True))
+    node = astar_graph_search(CanGoThere(warehouse.worker, warehouse, dst))
     
     return node is not None
     
