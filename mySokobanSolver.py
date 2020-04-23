@@ -56,8 +56,7 @@ def get_new_coords(action, x, y):
     if action == 'Right': x = x + 1
     elif action == 'Left': x = x - 1
     elif action == 'Up': y = y - 1
-    else: y = y + 1
-
+    elif action == 'Down' : y = y + 1
     return x, y
 
 
@@ -76,7 +75,7 @@ def get_prev_coords(action, x, y):
 
 
 def do_move(a, b):
-    return (a[0] + b[0], a[1] + b[0])
+    return (a[0] + b[0], a[1] + b[1])
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -306,7 +305,9 @@ class SokobanPuzzle(search.Problem):
         return 1
 
     def result(self, state, action):
-        pass
+        warehouse = sokoban.Warehouse()
+        warehouse.extract_locations(check_elem_action_seq(state, [action]).split("\n"))
+        return warehouse
     
     def actions(self, state):
         """
@@ -316,42 +317,24 @@ class SokobanPuzzle(search.Problem):
         'self.allow_taboo_push' and 'self.macro' should be tested to determine
         what type of list of actions is to be returned.
         """
-        
-        actions = []
 
-        if self.allow_taboo_push:
-            for move in self.possible_moves:
-                new_player_position = do_move(state.worker, move)
-                for (x,y) in state.boxes:
-                    if new_player_position not in state.walls:
-                        if new_player_position not in state.boxes:
-                            actions.append(get_move(move))
-                        else:
-                            new_box_position = do_move(new_player_position, move)
-                            if new_box_position not in (state.walls and state.boxes):
-                                actions.append(get_move(move))
-        else:
-            for move in self.possible_moves:
-                new_player_position = do_move(state.worker, move)
-                for (x,y) in state.boxes:
-                    if new_player_position not in state.walls:
-                        if new_player_position not in state.boxes:
-                            actions.append(get_move(move))
-                        else:
-                            new_box_position = do_move(new_player_position, move)
-                            if new_box_position not in (state.walls and state.boxes and self.taboo_cells):
-                                actions.append(get_move(move))
-        
-        print(actions)
-        return actions
+        for move in self.possible_moves:
+            new_worker_position = do_move(state.worker, move)
+            if new_worker_position not in state.walls:
+                if new_worker_position not in state.boxes:
+                    yield get_move(move)
+                else:
+                    new_box_position = do_move(new_worker_position, move)
+                    if new_box_position not in (state.walls and state.boxes):
+                        if self.allow_taboo_push is False and new_box_position not in self.taboo_cells:
+                            yield get_move(move)
+                        else: 
+                            yield get_move(move)
 
     def goal_test(self, state):
         return set(self.goal) == set(state.boxes)
 
     def h(self, node):
-
-        if check_elem_action_seq(node.state, node.solution()) == 'Impossible':
-            return 10000
 
         heuristics = []
         for position in node.state.boxes:
@@ -380,7 +363,7 @@ class SokobanPuzzle(search.Problem):
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
-def check_elem_action_seq(warehouse, action_seq):
+def check_elem_action_seq(wh, action_seq):
     '''
     
     Determine if the sequence of actions listed in 'action_seq' is legal or not.
@@ -406,6 +389,8 @@ def check_elem_action_seq(warehouse, action_seq):
     
     # "INSERT YOUR CODE HERE"
     # get the current x and y postion of te worker (player)
+    warehouse = sokoban.Warehouse()
+    warehouse.extract_locations(wh.__str__().split("\n"))
     x, y = warehouse.worker
 
     # loop through the actions in the list
@@ -413,7 +398,6 @@ def check_elem_action_seq(warehouse, action_seq):
 
         # get the new x and y based on the action postion
         newx, newy = get_new_coords(action, x, y)
-
         # check if the new postion (move) is a wall, if so return impossible to move
         if (newx, newy) in warehouse.walls:
             return 'Impossible'
@@ -456,11 +440,12 @@ def solve_sokoban_elem(warehouse):
     '''
     
     # "INSERT YOUR CODE HERE"
+
     astar_sol = astar_graph_search(SokobanPuzzle(warehouse))
     if astar_sol == [] or astar_sol is None: 
         return 'Impossible'
     else:
-        return astar_path.solution()
+        return astar_sol.solution()
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
