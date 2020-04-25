@@ -299,14 +299,18 @@ class SokobanPuzzle(search.Problem):
     def result(self, state, action):
 
         if self.macro:
-            actionMove = action[1]
-            actionCoords = action[0][1], action[0][0]
-            moveCoords = get_coords(actionMove)
+            box = action[0][1], action[0][0]
+            moveCoords = get_coords(action[1])
 
-            box_position = state.boxes.index(actionCoords)
-            new_box_position = actionCoords[0] + moveCoords[0], actionCoords[1] + moveCoords[1]
-            state.boxes[box_position] = new_box_position
-            state.worker = actionCoords
+            print("action: ", action)
+            print("moveCoords: ", moveCoords)
+            print("actionCoords: ", box)
+            print("state.boxes: ", state.boxes)
+            print("state.targets: ", state.targets)
+
+            state.worker = box
+            state.boxes.remove(box)
+            state.boxes.append(do_move(box, moveCoords))
             return state
         else:
             warehouse = sokoban.Warehouse()
@@ -332,7 +336,7 @@ class SokobanPuzzle(search.Problem):
                     can_go = can_go_there(state, new_worker_position)
                     if can_go and new_box_position not in state.walls and \
                         new_box_position not in state.boxes and new_box_position not in self.taboo_cells:
-                        actions.append(( (box[1], box[0] ), get_move(move)))
+                        actions.append(( (box[1], box[0]), get_move(move)))
         else:
             for move in self.possible_moves:
                 new_worker_position = do_move(state.worker, move)
