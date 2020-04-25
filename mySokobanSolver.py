@@ -1,21 +1,14 @@
 
 '''
-
     2020 CAB320 Sokoban assignment
-
-
 The functions and classes defined in this module will be called by a marker script.
 You should complete the functions and classes according to their specified interfaces.
 No partial marks will be awarded for functions that do not meet the specifications
 of the interfaces.
-
-
 You are NOT allowed to change the defined interfaces.
 That is, changing the formal parameters of a function will break the
 interface and results in a fail for the test of your code.
 This is not negotiable!
-
-
 '''
 
 # You have to make sure that your code works with
@@ -37,7 +30,6 @@ def my_team():
     '''
     Return the list of the team members of this assignment submission as a list
     of triplet of the form (student_number, first_name, last_name)
-
     '''
     return [ (9976353, 'Omar', 'Alqarni'), (9497862, 'Mohammed', 'Alsaeed'), (10368493, 'Sohyb', 'Qasem') ]
 
@@ -45,7 +37,6 @@ def my_team():
 
     '''
     Helper functions used through out the solution
-
     '''
 
 def manhattan_distance(a, b):
@@ -95,7 +86,6 @@ def taboo_cells(warehouse):
     
     @param warehouse: 
         a Warehouse object with a worker inside the warehouse
-
     @return
        A string representing the puzzle with only the wall cells marked with 
        a '#' and the taboo cells marked with a 'X'.  
@@ -261,7 +251,6 @@ class SokobanPuzzle(search.Problem):
     An instance of the class 'SokobanPuzzle' represents a Sokoban puzzle.
     An instance contains information about the walls, the targets, the boxes
     and the worker.
-
     Your implementation should be fully compatible with the search functions of 
     the provided module 'search.py'. 
     
@@ -318,18 +307,22 @@ class SokobanPuzzle(search.Problem):
         what type of list of actions is to be returned.
         """
 
+        actions = []
+
         for move in self.possible_moves:
             new_worker_position = do_move(state.worker, move)
             if new_worker_position not in state.walls:
                 if new_worker_position not in state.boxes:
-                    yield get_move(move)
+                    actions.append(get_move(move))
                 else:
                     new_box_position = do_move(new_worker_position, move)
-                    if new_box_position not in (state.walls and state.boxes):
+                    if new_box_position not in state.walls and new_box_position not in state.boxes:
                         if self.allow_taboo_push is False and new_box_position not in self.taboo_cells:
-                            yield get_move(move)
+                            actions.append(get_move(move))
                         else: 
-                            yield get_move(move)
+                            actions.append(get_move(move))
+        
+        return actions
 
     def goal_test(self, state):
         return set(self.goal) == set(state.boxes)
@@ -373,7 +366,6 @@ def check_elem_action_seq(wh, action_seq):
       - an action is legal even if it pushes a box onto a taboo cell.
         
     @param warehouse: a valid Warehouse object
-
     @param action_seq: a sequence of legal actions.
            For example, ['Left', 'Down', Down','Right', 'Up', 'Down']
            
@@ -430,7 +422,6 @@ def solve_sokoban_elem(warehouse):
     In this scenario, the cost of all (elementary) actions is one unit.
     
     @param warehouse: a valid Warehouse object
-
     @return
         If puzzle cannot be solved return the string 'Impossible'
         If a solution was found, return a list of elementary actions that solves
@@ -485,7 +476,6 @@ def can_go_there(warehouse, dst):
     without pushing any box.
     
     @param warehouse: a valid Warehouse object
-
     @return
       True if the worker can walk to cell dst=(row,column) without pushing any box
       False otherwise
@@ -514,9 +504,7 @@ def solve_sokoban_macro(warehouse):
     goes the box at row 12 and column 4 and pushes it down.
     
     In this scenario, the cost of all (macro) actions is one unit. 
-
     @param warehouse: a valid Warehouse object
-
     @return
         If the puzzle cannot be solved return the string 'Impossible'
         Otherwise return M a sequence of macro actions that solves the puzzle.
@@ -547,7 +535,6 @@ def solve_weighted_sokoban_elem(warehouse, push_costs):
     @param 
      warehouse: a valid Warehouse object
      push_costs: list of the weights of the boxes (pushing cost)
-
     @return
         If puzzle cannot be solved return 'Impossible'
         If a solution exists, return a list of elementary actions that solves
