@@ -330,8 +330,8 @@ class SokobanPuzzle(search.Problem):
     def h(self, node):
 
         heuristics = []
-        for position in node.state.boxes:
-            h_value = manhattan_distance(position, node.state.worker)
+        for box in node.state.boxes:
+            h_value = manhattan_distance(box, node.state.worker)
             heuristics.append(h_value)
 
         worker_to_box = min(heuristics)
