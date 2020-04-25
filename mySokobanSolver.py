@@ -51,6 +51,13 @@ def get_new_coords(action, x, y):
     return x, y
 
 
+def get_coords(move):
+    if move == 'Right': return (1, 0)
+    elif move == 'Left': return (-1, 0)
+    elif move == 'Up': return (0, -1)
+    elif move == 'Down': return (0, 1)
+
+
 def get_move(action):
     if action == (1, 0): return 'Right'
     elif action == (-1, 0): return 'Left'
@@ -277,26 +284,34 @@ class SokobanPuzzle(search.Problem):
     #     complete this class. For example, a 'result' function is needed
     #     to satisfy the interface of 'search.Problem'.
 
-    def __init__(self, warehouse, goal=None, allow_taboo_push=True, macro=False):
+    def __init__(self, warehouse, allow_taboo_push=True, macro=False):
         
         self.initial = warehouse
         self.taboo_cells = list(sokoban.find_2D_iterator(taboo_cells(warehouse).split('\n'), "X"))
         self.allow_taboo_push = allow_taboo_push
         self.macro = macro
         self.possible_moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-
-        if goal is not None:
-            self.goal = goal
-        else:
-            self.goal = warehouse.targets
+        self.goal = warehouse.targets
 
     def value(self, state):
         return 1
 
     def result(self, state, action):
-        warehouse = sokoban.Warehouse()
-        warehouse.extract_locations(check_elem_action_seq(state, [action]).split("\n"))
-        return warehouse
+
+        if self.macro:
+            actionMove = action[1]
+            actionCoords = action[0][1], action[0][0]
+            moveCoords = get_coords(actionMove)
+
+            box_position = state.boxes.index(actionCoords)
+            new_box_position = actionCoords[0] + moveCoords[0], actionCoords[1] + moveCoords[1]
+            state.boxes[box_position] = new_box_position
+            state.worker = actionCoords
+            return state
+        else:
+            warehouse = sokoban.Warehouse()
+            warehouse.extract_locations(check_elem_action_seq(state, [action]).split("\n"))
+            return warehouse
     
     def actions(self, state):
         """
@@ -308,19 +323,29 @@ class SokobanPuzzle(search.Problem):
         """
 
         actions = []
-
-        for move in self.possible_moves:
-            new_worker_position = do_move(state.worker, move)
-            if new_worker_position not in state.walls:
-                if new_worker_position not in state.boxes:
-                    actions.append(get_move(move))
-                else:
-                    new_box_position = do_move(new_worker_position, move)
-                    if new_box_position not in state.walls and new_box_position not in state.boxes:
-                        if self.allow_taboo_push is False and new_box_position not in self.taboo_cells:
-                            actions.append(get_move(move))
-                        else: 
-                            actions.append(get_move(move))
+        
+        if self.macro:
+            for box in state.boxes:
+                for move in self.possible_moves:
+                    new_box_position = do_move(box, move)
+                    new_worker_position = box[1] + (move[1] * -1), box[0] + (move[0] * -1)
+                    can_go = can_go_there(state, new_worker_position)
+                    if can_go and new_box_position not in state.walls and \
+                        new_box_position not in state.boxes and new_box_position not in self.taboo_cells:
+                        actions.append(( (box[1], box[0] ), get_move(move)))
+        else:
+            for move in self.possible_moves:
+                new_worker_position = do_move(state.worker, move)
+                if new_worker_position not in state.walls:
+                    if new_worker_position not in state.boxes:
+                        actions.append(get_move(move))
+                    else:
+                        new_box_position = do_move(new_worker_position, move)
+                        if new_box_position not in state.walls and new_box_position not in state.boxes:
+                            if self.allow_taboo_push is False and new_box_position not in self.taboo_cells:
+                                actions.append(get_move(move))
+                            else: 
+                                actions.append(get_move(move))
         
         return actions
 
@@ -502,7 +527,11 @@ def solve_sokoban_macro(warehouse):
     
     # "INSERT YOUR CODE HERE"
     
-    raise NotImplementedError()
+    astar_sol = astar_graph_search(SokobanPuzzle(warehouse, macro=True))
+    if astar_sol == [] or astar_sol is None: 
+        return 'Impossible'
+    else:
+        return astar_sol.solution()
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
