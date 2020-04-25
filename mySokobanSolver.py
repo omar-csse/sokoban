@@ -329,28 +329,17 @@ class SokobanPuzzle(search.Problem):
 
     def h(self, node):
 
-        heuristics = []
+        heuristic = 0
         for box in node.state.boxes:
-            h_value = manhattan_distance(box, node.state.worker)
-            heuristics.append(h_value)
 
-        worker_to_box = min(heuristics)
-
-        permutations_of_targets = list(itertools.permutations(node.state.targets))
-        heuristics = []
-        for i in range(len(permutations_of_targets)):
-
-            zipped_boxes_targets = list(zip(node.state.boxes, permutations_of_targets[i]))
-            total_h_values = 0
-
-            for j in range(len(zipped_boxes_targets)):
-                h_value = manhattan_distance(zipped_boxes_targets[j][0], zipped_boxes_targets[j][1])
-                total_h_values = total_h_values + h_value
-            
-            heuristics.append(total_h_values)
-
-        box_to_target = min(heuristics)
-        return worker_to_box + box_to_target
+            closest_target = node.state.targets[0]
+            for target in node.state.targets:
+                if (manhattan_distance(target, box) < manhattan_distance(closest_target, box)):
+                    closest_target = target
+    				
+            heuristic = heuristic + manhattan_distance(closest_target, box)              
+    
+        return heuristic
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
