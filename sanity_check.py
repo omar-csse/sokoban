@@ -145,7 +145,7 @@ def test_solve_sokoban_macro():
 
 def test_solve_weighted_sokoban_elem():
     wh = Warehouse()    
-    wh.load_warehouse( "./warehouses/cab320_warehouse_8.txt")
+    wh.load_warehouse( "./warehouses/cab320_warehouse_47.txt")
     # first test
     answer=solve_weighted_sokoban_elem(wh, [1,9])
 

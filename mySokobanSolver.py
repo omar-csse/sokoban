@@ -21,6 +21,7 @@ from operator import eq, add, sub
 import math
 import itertools
 from search import astar_graph_search
+import time
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -74,6 +75,27 @@ def get_prev_coords(action, x, y):
 
 def do_move(a, b):
     return (a[0] + b[0], a[1] + b[1])
+
+
+def get_heuristics_hashtable(warehouse):
+    t0 = time.time()
+    lines = warehouse.__str__().split("\n")
+
+    allspaces = list(sokoban.find_2D_iterator(lines, " "))
+    box_target = list(sokoban.find_2D_iterator(lines, "*"))
+    player_target = list(sokoban.find_2D_iterator(lines, "!"))
+    allcells = [*[warehouse.worker], *warehouse.boxes, *warehouse.targets, *allspaces, *box_target, *player_target]
+
+    lookuptable = dict()
+    for i, cell in enumerate(allcells):
+        for i in range(len(warehouse.targets)):
+            cell_target =  cell + (i, )
+            lookuptable[cell_target] = manhattan_distance(cell, warehouse.targets[i])
+
+    t1 = time.time()
+
+    print("it took: ", t1-t0, "s to compute lookuptable")
+    return lookuptable
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -292,9 +314,8 @@ class SokobanPuzzle(search.Problem):
         self.macro = macro
         self.possible_moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         self.goal = warehouse.targets
+        self.heuristic_hashtable = get_heuristics_hashtable(warehouse)
 
-    def value(self, state):
-        return 1
 
     def result(self, state, action):
 
@@ -304,13 +325,15 @@ class SokobanPuzzle(search.Problem):
 
             print("action: ", action)
             print("moveCoords: ", moveCoords)
-            print("actionCoords: ", box)
+            print("box: ", box)
             print("state.boxes: ", state.boxes)
             print("state.targets: ", state.targets)
+            print("domove:", do_move(box, moveCoords))
 
             state.worker = box
             state.boxes.remove(box)
             state.boxes.append(do_move(box, moveCoords))
+
             return state
         else:
             warehouse = sokoban.Warehouse()
@@ -346,9 +369,9 @@ class SokobanPuzzle(search.Problem):
                     else:
                         new_box_position = do_move(new_worker_position, move)
                         if new_box_position not in state.walls and new_box_position not in state.boxes:
-                            if self.allow_taboo_push is False and new_box_position not in self.taboo_cells:
+                            if self.allow_taboo_push is True:
                                 actions.append(get_move(move))
-                            else: 
+                            elif new_box_position not in self.taboo_cells: 
                                 actions.append(get_move(move))
         
         return actions
@@ -358,17 +381,8 @@ class SokobanPuzzle(search.Problem):
 
     def h(self, node):
 
-        heuristic = 0
-        for box in node.state.boxes:
-
-            closest_target = node.state.targets[0]
-            for target in node.state.targets:
-                if (manhattan_distance(target, box) < manhattan_distance(closest_target, box)):
-                    closest_target = target
-    				
-            heuristic = heuristic + manhattan_distance(closest_target, box)              
-    
-        return heuristic
+        heuristics = [self.heuristic_hashtable[ (*box,i) ] for i, box in enumerate(node.state.boxes)]
+        return min(heuristics)
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
