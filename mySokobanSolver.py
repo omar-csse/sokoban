@@ -304,7 +304,7 @@ class SokobanPuzzle(search.Problem):
     #     complete this class. For example, a 'result' function is needed
     #     to satisfy the interface of 'search.Problem'.
 
-    def __init__(self, warehouse, allow_taboo_push=False, macro=False):
+    def __init__(self, warehouse, allow_taboo_push=False, macro=False, push_costs=None):
         
         self.initial = str(warehouse)
         self.taboo_cells = list(sokoban.find_2D_iterator(taboo_cells(warehouse).split('\n'), "X"))
@@ -313,24 +313,8 @@ class SokobanPuzzle(search.Problem):
         self.possible_moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         self.goal = get_goal_state(warehouse)
         self.heuristic_hashtable = get_heuristics_hashtable(warehouse)
-
-
-    def result(self, state, action):
-
-        warehouse = sokoban.Warehouse()
-        warehouse.extract_locations(state.split('\n'))       
-
-        if self.macro:
-            box = action[0][1], action[0][0]
-            moveCoords = get_coords(action[1])
-            warehouse.worker = box
-            warehouse.boxes.remove(box)
-            warehouse.boxes.append(do_move(box, moveCoords))
-            return str(warehouse)
-        else:
-            warehouse = sokoban.Warehouse()
-            warehouse.extract_locations(check_elem_action_seq(state, [action]).split("\n"))
-            return str(warehouse)
+        self.push_costs = push_costs
+        self.box_index = None
     
     def actions(self, state):
         """
@@ -370,9 +354,37 @@ class SokobanPuzzle(search.Problem):
         
         return actions
 
+    def result(self, state, action):
+
+        warehouse = sokoban.Warehouse()
+
+        if self.macro:
+            warehouse.extract_locations(state.split('\n'))       
+            box = action[0][1], action[0][0]
+            moveCoords = get_coords(action[1])
+            warehouse.worker = box
+            self.box_index = warehouse.boxes.index(box)
+            warehouse.boxes[self.box_index] = (do_move(box, moveCoords))
+            return str(warehouse)
+        else:
+            warehouse = sokoban.Warehouse()
+            warehouse_updated, box_index = check_elem_action(state, action)
+            self.box_index = box_index
+            warehouse.extract_locations(warehouse_updated.split("\n"))
+            return str(warehouse)
+
     def goal_test(self, state):
         winning_state = state.replace('@', ' ')
         return self.goal == winning_state
+
+    def path_cost(self, c, state1, action, state2):
+
+        if self.push_costs is not None and self.box_index is not None:
+            path_cost = self.push_costs[self.box_index]
+            self.box_index = None
+            return path_cost
+
+        return c + 1
 
     def h(self, node):
 
@@ -381,6 +393,30 @@ class SokobanPuzzle(search.Problem):
         heuristics = [self.heuristic_hashtable[ (*box,i) ] for i, box in enumerate(warehouse.boxes)]
         return min(heuristics)
 
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+def check_elem_action(wh, action):
+
+    warehouse = sokoban.Warehouse()
+    warehouse.extract_locations(wh.__str__().split("\n"))
+    x, y = warehouse.worker
+    box_index = None
+
+    newx, newy = get_new_coords(action, x, y)
+    if (newx, newy) in warehouse.walls:
+        return 'Impossible'
+    elif (newx, newy) in warehouse.boxes:
+        if get_new_coords(action, newx, newy) in (warehouse.walls or warehouse.boxes):
+            return 'Impossible'
+        
+        box_index = warehouse.boxes.index((newx, newy))
+        warehouse.boxes[box_index] = get_new_coords(action, newx, newy)
+
+    x = newx
+    y = newy
+    warehouse.worker = x, y
+    return warehouse.__str__(), box_index
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -430,8 +466,8 @@ def check_elem_action_seq(wh, action_seq):
                 return 'Impossible'
             
             # otherwise, it is possible to shif the box. hence, update the box action to the new one
-            warehouse.boxes.remove((newx, newy))
-            warehouse.boxes.append( (get_new_coords(action, newx, newy)) )
+            box_index = warehouse.boxes.index((newx, newy))
+            warehouse.boxes[box_index] = get_new_coords(action, newx, newy)
 
         # update the x and y
         x = newx
@@ -576,7 +612,11 @@ def solve_weighted_sokoban_elem(warehouse, push_costs):
             If the puzzle is already in a goal state, simply return []
     '''
     
-    raise NotImplementedError()
+    astar_sol = search.astar_graph_search(SokobanPuzzle(warehouse, macro=False, push_costs=push_costs))
+    if astar_sol == [] or astar_sol is None: 
+        return 'Impossible'
+    else:
+        return astar_sol.solution()
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
