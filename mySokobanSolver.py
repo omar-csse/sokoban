@@ -16,12 +16,9 @@ This is not negotiable!
 # with these files
 import search
 import sokoban
-from sokoban import Warehouse
 from operator import eq, add, sub
 import math
 import itertools
-from search import astar_graph_search
-import time
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -77,8 +74,12 @@ def do_move(a, b):
     return (a[0] + b[0], a[1] + b[1])
 
 
+def get_goal_state(warehouse):
+    return str(warehouse).replace('@', ' ').replace('$', ' ').replace('.', '*')
+
+
 def get_heuristics_hashtable(warehouse):
-    t0 = time.time()
+
     lines = warehouse.__str__().split("\n")
 
     allspaces = list(sokoban.find_2D_iterator(lines, " "))
@@ -92,9 +93,6 @@ def get_heuristics_hashtable(warehouse):
             cell_target =  cell + (i, )
             lookuptable[cell_target] = manhattan_distance(cell, warehouse.targets[i])
 
-    t1 = time.time()
-
-    print("it took: ", t1-t0, "s to compute lookuptable")
     return lookuptable
 
 
@@ -306,39 +304,33 @@ class SokobanPuzzle(search.Problem):
     #     complete this class. For example, a 'result' function is needed
     #     to satisfy the interface of 'search.Problem'.
 
-    def __init__(self, warehouse, allow_taboo_push=True, macro=False):
+    def __init__(self, warehouse, allow_taboo_push=False, macro=False):
         
-        self.initial = warehouse
+        self.initial = str(warehouse)
         self.taboo_cells = list(sokoban.find_2D_iterator(taboo_cells(warehouse).split('\n'), "X"))
         self.allow_taboo_push = allow_taboo_push
         self.macro = macro
         self.possible_moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-        self.goal = warehouse.targets
+        self.goal = get_goal_state(warehouse)
         self.heuristic_hashtable = get_heuristics_hashtable(warehouse)
 
 
     def result(self, state, action):
 
+        warehouse = sokoban.Warehouse()
+        warehouse.extract_locations(state.split('\n'))       
+
         if self.macro:
             box = action[0][1], action[0][0]
             moveCoords = get_coords(action[1])
-
-            print("action: ", action)
-            print("moveCoords: ", moveCoords)
-            print("box: ", box)
-            print("state.boxes: ", state.boxes)
-            print("state.targets: ", state.targets)
-            print("domove:", do_move(box, moveCoords))
-
-            state.worker = box
-            state.boxes.remove(box)
-            state.boxes.append(do_move(box, moveCoords))
-
-            return state
+            warehouse.worker = box
+            warehouse.boxes.remove(box)
+            warehouse.boxes.append(do_move(box, moveCoords))
+            return str(warehouse)
         else:
             warehouse = sokoban.Warehouse()
             warehouse.extract_locations(check_elem_action_seq(state, [action]).split("\n"))
-            return warehouse
+            return str(warehouse)
     
     def actions(self, state):
         """
@@ -349,26 +341,28 @@ class SokobanPuzzle(search.Problem):
         what type of list of actions is to be returned.
         """
 
+        warehouse = sokoban.Warehouse()
+        warehouse.extract_locations(state.split("\n"))
         actions = []
         
         if self.macro:
-            for box in state.boxes:
+            for box in warehouse.boxes:
                 for move in self.possible_moves:
                     new_box_position = do_move(box, move)
                     new_worker_position = box[1] + (move[1] * -1), box[0] + (move[0] * -1)
-                    can_go = can_go_there(state, new_worker_position)
-                    if can_go and new_box_position not in state.walls and \
-                        new_box_position not in state.boxes and new_box_position not in self.taboo_cells:
+                    can_go = can_go_there(warehouse, new_worker_position)
+                    if can_go and new_box_position not in warehouse.walls and \
+                        new_box_position not in warehouse.boxes and new_box_position not in self.taboo_cells:
                         actions.append(( (box[1], box[0]), get_move(move)))
         else:
             for move in self.possible_moves:
-                new_worker_position = do_move(state.worker, move)
-                if new_worker_position not in state.walls:
-                    if new_worker_position not in state.boxes:
+                new_worker_position = do_move(warehouse.worker, move)
+                if new_worker_position not in warehouse.walls:
+                    if new_worker_position not in warehouse.boxes:
                         actions.append(get_move(move))
                     else:
                         new_box_position = do_move(new_worker_position, move)
-                        if new_box_position not in state.walls and new_box_position not in state.boxes:
+                        if new_box_position not in warehouse.walls and new_box_position not in warehouse.boxes:
                             if self.allow_taboo_push is True:
                                 actions.append(get_move(move))
                             elif new_box_position not in self.taboo_cells: 
@@ -377,11 +371,14 @@ class SokobanPuzzle(search.Problem):
         return actions
 
     def goal_test(self, state):
-        return set(self.goal) == set(state.boxes)
+        winning_state = state.replace('@', ' ')
+        return self.goal == winning_state
 
     def h(self, node):
 
-        heuristics = [self.heuristic_hashtable[ (*box,i) ] for i, box in enumerate(node.state.boxes)]
+        warehouse = sokoban.Warehouse()
+        warehouse.extract_locations(node.state.split("\n"))
+        heuristics = [self.heuristic_hashtable[ (*box,i) ] for i, box in enumerate(warehouse.boxes)]
         return min(heuristics)
 
 
@@ -464,7 +461,7 @@ def solve_sokoban_elem(warehouse):
     
     # "INSERT YOUR CODE HERE"
 
-    astar_sol = astar_graph_search(SokobanPuzzle(warehouse))
+    astar_sol = search.astar_graph_search(SokobanPuzzle(warehouse))
     if astar_sol == [] or astar_sol is None: 
         return 'Impossible'
     else:
@@ -516,7 +513,7 @@ def can_go_there(warehouse, dst):
     ## "INSERT YOUR CODE HERE"
 
     dst = (dst[1], dst[0])
-    node = astar_graph_search(CanGoThere(warehouse.worker, warehouse, dst))
+    node = search.astar_graph_search(CanGoThere(warehouse.worker, warehouse, dst))
     
     return node is not None
     
@@ -545,7 +542,7 @@ def solve_sokoban_macro(warehouse):
     
     # "INSERT YOUR CODE HERE"
     
-    astar_sol = astar_graph_search(SokobanPuzzle(warehouse, macro=True))
+    astar_sol = search.astar_graph_search(SokobanPuzzle(warehouse, macro=True))
     if astar_sol == [] or astar_sol is None: 
         return 'Impossible'
     else:
