@@ -382,7 +382,7 @@ class SokobanPuzzle(search.Problem):
         if self.push_costs is not None and self.box_index is not None:
             path_cost = self.push_costs[self.box_index]
             self.box_index = None
-            return  c + path_cost
+            return c + path_cost
 
         return c + 1
 
@@ -390,6 +390,10 @@ class SokobanPuzzle(search.Problem):
 
         warehouse = sokoban.Warehouse()
         warehouse.extract_locations(node.state.split("\n"))
+        
+        if check_elem_action_seq(warehouse, node.solution()) == 'Impossible':
+            return 10000
+
         heuristics = [self.heuristic_hashtable[ (*box,i) ] for i, box in enumerate(warehouse.boxes)]
         return min(heuristics)
 
