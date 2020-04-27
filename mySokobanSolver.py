@@ -382,7 +382,7 @@ class SokobanPuzzle(search.Problem):
         if self.push_costs is not None and self.box_index is not None:
             path_cost = self.push_costs[self.box_index]
             self.box_index = None
-            return path_cost
+            return  c + path_cost
 
         return c + 1
 
