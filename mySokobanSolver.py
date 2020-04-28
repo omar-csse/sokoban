@@ -33,15 +33,28 @@ def my_team():
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    '''
-    Helper functions used through out the solution
-    '''
+'''
+Helper functions used through out the solution
+'''
 
 def manhattan_distance(a, b):
+    '''    
+    @param a: point a
+    @param b: point b 
+    @return
+        the computed manhattan distance between two points
+    '''
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 
 def get_new_coords(action, x, y):
+    '''    
+    @param action: type of action: Left, Right Up or Down
+    @param x: x of coord
+    @param y: y of coord
+    @return
+        the updated x,y based on the type of action 
+    '''
     if action == 'Right': x = x + 1
     elif action == 'Left': x = x - 1
     elif action == 'Up': y = y - 1
@@ -50,35 +63,78 @@ def get_new_coords(action, x, y):
 
 
 def get_coords(move):
+    '''    
+    @param move: type of move: Left, Right Up or Down
+    @return
+        return the move coord based on the move type
+    '''
     if move == 'Right': return (1, 0)
     elif move == 'Left': return (-1, 0)
     elif move == 'Up': return (0, -1)
     elif move == 'Down': return (0, 1)
 
 
-def get_move(action):
-    if action == (1, 0): return 'Right'
-    elif action == (-1, 0): return 'Left'
-    elif action == (0, -1): return 'Up'
-    elif action == (0, 1): return 'Down'
+def get_move(move_coords):
+    '''    
+    @param move_coords: type of move_coords: (1,0), (-1,0), (0,1), (0,-1)
+    @return
+        return the move type based on the move_coords
+    '''
+    if move_coords == (1, 0): return 'Right'
+    elif move_coords == (-1, 0): return 'Left'
+    elif move_coords == (0, -1): return 'Up'
+    elif move_coords == (0, 1): return 'Down'
 
 
-def get_prev_coords(action, x, y):
-    if action == (1, 0): return x-1, y
-    elif action == (-1, 0): return x+1, y
-    elif action == (0, -1): return x, y+1
-    elif action == (0, 1): return x, y-1
+def get_prev_coords(move_coords, x, y):
+    '''    
+    @param move_coords: type of move_coords: (1,0), (-1,0), (0,1), (0,-1)
+    @param x: x of coord
+    @param y: y of coord
+    @return
+        return the previous move coords type based on the move_coords
+    '''
+    if move_coords == (1, 0): return x-1, y
+    elif move_coords == (-1, 0): return x+1, y
+    elif move_coords == (0, -1): return x, y+1
+    elif move_coords == (0, 1): return x, y-1
 
 
 def do_move(a, b):
+    '''    
+    @param a: coords of element a
+    @param b: coords of element b
+    @return
+        do the move, and return the new coords
+    '''
     return (a[0] + b[0], a[1] + b[1])
 
 
 def get_goal_state(warehouse):
+    '''    
+    @param warehouse: a Warehouse object with a worker inside the warehouse
+    @return
+        return the state with the targets only, remove the player boxes
+    '''
     return str(warehouse).replace('@', ' ').replace('$', ' ').replace('.', '*')
 
 
 def get_heuristics_hashtable(warehouse):
+    '''    
+
+    the goal of this function is to compute the heuristics value for each cell in the 
+    state. we know that the target is fixed in the state, so we are able to compute the
+    heuristics using the manhattan distance between every cell and each target.
+
+    Hence, for example if the current cell is (4, 2), the cell_target would be
+    (4, 2, 0) for the first target and (4, 2, 1) for the second target
+
+    The lookup table would be adictionary which internally uses hashtables. 
+
+    @param warehouse: a Warehouse object with a worker inside the warehouse
+    @return
+        return the lookup table
+    '''
 
     lines = warehouse.__str__().split("\n")
 
@@ -401,6 +457,19 @@ class SokobanPuzzle(search.Problem):
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def check_elem_action(wh, action):
+    '''
+    Determine if the sequence of actions listed in 'action' is legal or not.
+
+    Works same as check_elem_action_seq but for a single action
+
+    @param warehouse: a valid Warehouse object
+    @param action: legal action. ('Left', 'Down', 'Right', 'Up')
+           
+    @return
+        'Impossible' and None for the box index if the action is legal,
+        Otherwise: a string representations of the state, and the box index
+        that has been pushed (to be used in weighted elem)
+    '''
 
     warehouse = sokoban.Warehouse()
     warehouse.extract_locations(wh.__str__().split("\n"))
@@ -409,10 +478,10 @@ def check_elem_action(wh, action):
 
     newx, newy = get_new_coords(action, x, y)
     if (newx, newy) in warehouse.walls:
-        return 'Impossible'
+        return 'Impossible', box_index
     elif (newx, newy) in warehouse.boxes:
         if get_new_coords(action, newx, newy) in (warehouse.walls or warehouse.boxes):
-            return 'Impossible'
+            return 'Impossible', box_index
         
         box_index = warehouse.boxes.index((newx, newy))
         warehouse.boxes[box_index] = get_new_coords(action, newx, newy)
